@@ -9,87 +9,31 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Search, Package, Users, MapPin, Calendar, CheckCircle, Filter, Clock, Phone, Mail, Info } from "lucide-react";
-import { useState } from "react";
-
-const foundItems = [
-  { 
-    id: 1, 
-    name: "Blue Leather Wallet", 
-    type: "Personal Items", 
-    location: "Piazza Shopping Center", 
-    date: "2024-01-14", 
-    time: "14:30",
-    claimed: false,
-    description: "Contains ID cards and credit cards",
-    finder: "Security Guard",
-    contact: "+251-911-234567",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: 2, 
-    name: "Gold Watch", 
-    type: "Jewelry", 
-    location: "Bole Road, Atlas Hotel", 
-    date: "2024-01-12",
-    time: "09:15",
-    claimed: false,
-    description: "Rolex style gold watch with brown leather strap",
-    finder: "Hotel Staff",
-    contact: "+251-911-345678",
-    image: "/placeholder.svg"
-  },
-  { 
-    id: 3, 
-    name: "House Keys", 
-    type: "Keys", 
-    location: "Megenagna Bus Station", 
-    date: "2024-01-11",
-    time: "18:45",
-    claimed: true,
-    description: "Set of 4 keys with blue keychain",
-    finder: "Bus Driver",
-    contact: "+251-911-456789",
-    image: "/placeholder.svg"
-  },
-];
-
-const foundPersons = [
-  { 
-    id: 1, 
-    name: "Yonas Tesfaye", 
-    age: "65 years", 
-    gender: "Male",
-    location: "Arat Kilo, Near Post Office", 
-    date: "2024-01-12",
-    time: "16:20",
-    reunited: true,
-    description: "Elderly man, wearing blue jacket, seemed disoriented",
-    finder: "Community Police",
-    contact: "+251-911-567890",
-    image: "/placeholder.svg",
-    familyContact: "+251-911-111222"
-  },
-  { 
-    id: 2, 
-    name: "Helen Assefa", 
-    age: "10 years",
-    gender: "Female", 
-    location: "Stadium Area, Near Main Gate", 
-    date: "2024-01-13",
-    time: "11:30",
-    reunited: false,
-    description: "Young girl, wearing school uniform, unable to find parents",
-    finder: "Stadium Security",
-    contact: "+251-911-678901",
-    image: "/placeholder.svg",
-    familyContact: "Not available"
-  },
-];
+import { useEffect, useMemo, useState } from "react";
+import { fetchFoundReports, type Post } from "@/lib/api";
 
 const Found = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let abort = false;
+    setIsLoading(true);
+    // Map UI filters to backend params when possible
+    const params: any = { q: searchQuery };
+    fetchFoundReports(params)
+      .then((res) => { if (!abort) { setPosts(res.posts); setError(null); } })
+      .catch((e) => { if (!abort) setError(e.message || "Failed to load reports"); })
+      .finally(() => { if (!abort) setIsLoading(false); });
+    return () => { abort = true; };
+  }, [searchQuery]);
+
+  const foundItems = useMemo(() => posts.filter(p => p.type === 'found_item'), [posts]);
+  const foundPersons = useMemo(() => posts.filter(p => p.type === 'found_person'), [posts]);
 
   return (
     <DashboardLayout>
@@ -122,7 +66,8 @@ const Found = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-chart-2">
-                {foundItems.filter(i => i.claimed).length + foundPersons.filter(p => p.reunited).length}
+                {/* Using status resolved as claimed/reunited proxy */}
+                {foundItems.filter(i => i.status === 'resolved').length + foundPersons.filter(p => p.status === 'resolved').length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Successfully matched</p>
             </CardContent>
@@ -133,7 +78,7 @@ const Found = () => {
             </CardHeader>
             <CardContent>
               <div className="text-3xl font-bold text-chart-3">
-                {foundItems.filter(i => !i.claimed).length + foundPersons.filter(p => !p.reunited).length}
+                {foundItems.filter(i => i.status !== 'resolved').length + foundPersons.filter(p => p.status !== 'resolved').length}
               </div>
               <p className="text-xs text-muted-foreground mt-1">Awaiting match</p>
             </CardContent>
@@ -189,20 +134,24 @@ const Found = () => {
             </Select>
           </div>
 
+          {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+
           <TabsContent value="items" className="space-y-4">
             {foundItems.map((item) => (
-              <Card key={item.id} className="border-border bg-card hover:border-primary/50 transition-all duration-300 overflow-hidden group">
+              <Card key={item._id} className="border-border bg-card hover:border-primary/50 transition-all duration-300 overflow-hidden group">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row gap-4 p-6">
                     {/* Image */}
                     <div className="relative w-full md:w-32 h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                       <Avatar className="w-full h-full rounded-lg">
-                        <AvatarImage src={item.image} alt={item.name} className="object-cover" />
+                        {/* No image URL in schema for items; could show first image if exists */}
+                        <AvatarImage src={(item.images && item.images[0]?.url) || "/placeholder.svg"} alt={item.itemName || item.title} className="object-cover" />
                         <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
                           <Package className="h-12 w-12" />
                         </AvatarFallback>
                       </Avatar>
-                      {item.claimed && (
+                      {item.status === 'resolved' && (
                         <div className="absolute top-2 right-2 bg-chart-2 text-white p-1.5 rounded-full">
                           <CheckCircle className="h-4 w-4" />
                         </div>
@@ -214,11 +163,11 @@ const Found = () => {
                       <div className="flex items-start justify-between flex-wrap gap-2">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-xl font-bold text-foreground">{item.name}</h3>
+                            <h3 className="text-xl font-bold text-foreground">{item.itemName || item.title}</h3>
                             <Badge variant="outline" className="border-chart-2 text-chart-2 bg-chart-2/10">
                               Found
                             </Badge>
-                            {item.claimed && (
+                            {item.status === 'resolved' && (
                               <Badge className="bg-chart-2 text-white">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 Claimed
@@ -226,7 +175,7 @@ const Found = () => {
                             )}
                           </div>
                           <Badge variant="secondary" className="text-xs">
-                            {item.type}
+                            {item.category || 'Item'}
                           </Badge>
                         </div>
                       </div>
@@ -239,28 +188,25 @@ const Found = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span className="truncate">{item.location}</span>
+                          <span className="truncate">{item.location?.address || item.location?.city || 'Unknown'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Calendar className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{new Date(item.date).toLocaleDateString()} at {item.time}</span>
+                          <span>{new Date(item.lastSeenDate || item.createdAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Users className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>Found by: {item.finder}</span>
+                          <span>Reported by: {typeof item.userId === 'string' ? item.userId : item.userId?.name}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Phone className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{item.contact}</span>
+                          <span>{item.contactPhone || 'N/A'}</span>
                         </div>
                       </div>
 
                       <div className="flex gap-2 pt-2">
-                        <Button 
-                          variant={item.claimed ? "outline" : "default"}
-                          className="flex-1 sm:flex-none"
-                        >
-                          {item.claimed ? "View Details" : "Match with Owner"}
+                        <Button className="flex-1 sm:flex-none">
+                          {item.status === 'resolved' ? "View Details" : "Match with Owner"}
                         </Button>
                         <Button variant="outline" size="icon">
                           <Phone className="h-4 w-4" />
@@ -278,18 +224,18 @@ const Found = () => {
 
           <TabsContent value="persons" className="space-y-4">
             {foundPersons.map((person) => (
-              <Card key={person.id} className="border-l-4 border-l-primary bg-card hover:border-l-chart-2 transition-all duration-300 overflow-hidden group">
+              <Card key={person._id} className="border-l-4 border-l-primary bg-card hover:border-l-chart-2 transition-all duration-300 overflow-hidden group">
                 <CardContent className="p-0">
                   <div className="flex flex-col md:flex-row gap-4 p-6">
                     {/* Image */}
                     <div className="relative w-full md:w-32 h-32 rounded-lg overflow-hidden bg-muted flex-shrink-0">
                       <Avatar className="w-full h-full rounded-lg">
-                        <AvatarImage src={person.image} alt={person.name} className="object-cover" />
+                        <AvatarImage src={(person.images && person.images[0]?.url) || "/placeholder.svg"} alt={person.personName || person.title} className="object-cover" />
                         <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-2xl">
-                          {person.name.split(' ').map(n => n[0]).join('')}
+                          {(person.personName || person.title || 'P').split(' ').map(n => n[0]).join('')}
                         </AvatarFallback>
                       </Avatar>
-                      {person.reunited && (
+                      {person.status === 'resolved' && (
                         <div className="absolute top-2 right-2 bg-chart-2 text-white p-1.5 rounded-full">
                           <CheckCircle className="h-4 w-4" />
                         </div>
@@ -301,11 +247,11 @@ const Found = () => {
                       <div className="flex items-start justify-between flex-wrap gap-2">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h3 className="text-xl font-bold text-foreground">{person.name}</h3>
+                            <h3 className="text-xl font-bold text-foreground">{person.personName || person.title}</h3>
                             <Badge variant="outline" className="border-primary text-primary bg-primary/10">
                               Found Person
                             </Badge>
-                            {person.reunited && (
+                            {person.status === 'resolved' && (
                               <Badge className="bg-chart-2 text-white">
                                 <CheckCircle className="h-3 w-3 mr-1" />
                                 Reunited
@@ -314,10 +260,10 @@ const Found = () => {
                           </div>
                           <div className="flex gap-2">
                             <Badge variant="secondary" className="text-xs">
-                              {person.age}
+                              {person.age ?? 'N/A'}
                             </Badge>
                             <Badge variant="secondary" className="text-xs">
-                              {person.gender}
+                              {person.gender || 'Unknown'}
                             </Badge>
                           </div>
                         </div>
@@ -331,27 +277,28 @@ const Found = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <MapPin className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span className="truncate">{person.location}</span>
+                          <span className="truncate">{person.location?.address || person.location?.city || 'Unknown'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Clock className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>{new Date(person.date).toLocaleDateString()} at {person.time}</span>
+                          <span>{new Date(person.lastSeenDate || person.createdAt || Date.now()).toLocaleDateString()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Users className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>Found by: {person.finder}</span>
+                          <span>Reported by: {typeof person.userId === 'string' ? person.userId : person.userId?.name}</span>
                         </div>
                         <div className="flex items-center gap-2 text-muted-foreground">
                           <Phone className="h-4 w-4 text-primary flex-shrink-0" />
-                          <span>Finder: {person.contact}</span>
+                          <span>Contact: {person.contactPhone || 'N/A'}</span>
                         </div>
                       </div>
 
-                      {person.familyContact !== "Not available" && (
+                      {/* Optional: family contact not modeled; keeping UI section if needed */}
+                      {false && (
                         <div className="bg-primary/5 border border-primary/20 rounded-lg p-3">
                           <p className="text-sm font-medium text-foreground flex items-center gap-2">
                             <Phone className="h-4 w-4 text-primary" />
-                            Family Contact: {person.familyContact}
+                            Family Contact: N/A
                           </p>
                         </div>
                       )}
@@ -361,7 +308,7 @@ const Found = () => {
                           className={person.reunited ? "bg-chart-2 hover:bg-chart-2/90" : ""}
                           variant={person.reunited ? "default" : "default"}
                         >
-                          {person.reunited ? "View Reunion Details" : "Initiate Contact"}
+                          {person.status === 'resolved' ? "View Reunion Details" : "Initiate Contact"}
                         </Button>
                         <Button variant="outline" size="icon">
                           <Phone className="h-4 w-4" />

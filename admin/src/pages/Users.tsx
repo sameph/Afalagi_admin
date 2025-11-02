@@ -7,15 +7,31 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Mail, Phone, MapPin } from "lucide-react";
-
-const users = [
-  { id: 1, name: "Abebe Tadesse", email: "abebe@example.com", phone: "+251 91 234 5678", location: "Addis Ababa", reports: 12, status: "Active" },
-  { id: 2, name: "Tigist Haile", email: "tigist@example.com", phone: "+251 91 345 6789", location: "Addis Ababa", reports: 8, status: "Active" },
-  { id: 3, name: "Dawit Bekele", email: "dawit@example.com", phone: "+251 91 456 7890", location: "Addis Ababa", reports: 15, status: "Active" },
-  { id: 4, name: "Sara Ahmed", email: "sara@example.com", phone: "+251 91 567 8901", location: "Addis Ababa", reports: 5, status: "Inactive" },
-];
+import { useEffect, useState } from "react";
+import { fetchUsers, type User } from "@/lib/api";
 
 const Users = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+
+  useEffect(() => {
+    let abort = false;
+    setIsLoading(true);
+    fetchUsers({ q })
+      .then((res) => {
+        if (!abort) {
+          setUsers(res.users);
+          setError(null);
+        }
+      })
+      .catch((e) => !abort && setError(e.message || "Failed to load users"))
+      .finally(() => !abort && setIsLoading(false));
+    return () => {
+      abort = true;
+    };
+  }, [q]);
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -32,26 +48,33 @@ const Users = () => {
 
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search users..." className="pl-10" />
+          <Input placeholder="Search users..." className="pl-10" value={q} onChange={(e) => setQ(e.target.value)} />
         </div>
+
+        {isLoading && (
+          <p className="text-sm text-muted-foreground">Loading users...</p>
+        )}
+        {error && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
 
         <div className="grid gap-4">
           {users.map((user) => (
-            <Card key={user.id} className="border-border bg-card/50 backdrop-blur-sm hover:shadow-glow transition-all">
+            <Card key={user._id} className="border-border bg-card/50 backdrop-blur-sm hover:shadow-glow transition-all">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex gap-4 flex-1">
                     <Avatar className="h-12 w-12">
                       <AvatarFallback className="bg-gradient-primary text-primary-foreground">
-                        {user.name.split(" ").map(n => n[0]).join("")}
+                        {(user.name || user.email).split(" ").map(n => n[0]).join("")}
                       </AvatarFallback>
                     </Avatar>
                     
                     <div className="space-y-2 flex-1">
                       <div className="flex items-center gap-3">
-                        <h3 className="text-lg font-semibold text-foreground">{user.name}</h3>
-                        <Badge variant={user.status === "Active" ? "default" : "secondary"}>
-                          {user.status}
+                        <h3 className="text-lg font-semibold text-foreground">{user.name || user.email}</h3>
+                        <Badge variant={user.role === "admin" ? "default" : "secondary"}>
+                          {user.role}
                         </Badge>
                       </div>
                       
@@ -62,17 +85,19 @@ const Users = () => {
                         </div>
                         <div className="flex items-center gap-2">
                           <Phone className="h-4 w-4" />
-                          {user.phone}
+                          N/A
                         </div>
                         <div className="flex items-center gap-2">
                           <MapPin className="h-4 w-4" />
-                          {user.location}
+                          Joined: {user.createdAt ? new Date(user.createdAt).toLocaleDateString() : "Unknown"}
                         </div>
                       </div>
                       
-                      <p className="text-sm text-muted-foreground">
-                        Total Reports: <span className="font-semibold text-foreground">{user.reports}</span>
-                      </p>
+                      {user.lastLogin && (
+                        <p className="text-sm text-muted-foreground">
+                          Last login: <span className="font-semibold text-foreground">{new Date(user.lastLogin).toLocaleString()}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
                   

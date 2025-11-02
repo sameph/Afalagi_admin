@@ -7,6 +7,11 @@ import {
   revokeInvite,
   resendInvite,
   acceptInvite,
+  getUsers,
+  getAdminPosts,
+  getLostReports,
+  getFoundReports,
+  getAllItems,
 } from "../controllers/admin.controller.js";
 
 const router = express.Router();
@@ -19,5 +24,12 @@ router.delete("/invites/:id", verifyToken, isAdmin, revokeInvite);
 
 // Public endpoint to accept invite (requires token), returns auth cookie on success
 router.post("/invites/accept", acceptInvite);
+
+// Admin data APIs
+router.get("/users", verifyToken, isAdmin, getUsers);
+router.get("/posts", verifyToken, isAdmin, getAdminPosts);
+router.get("/reports/lost", verifyToken, isAdmin, getLostReports);
+router.get("/reports/found", verifyToken, isAdmin, getFoundReports);
+router.get("/items", verifyToken, isAdmin, getAllItems);
 
 export default router;
