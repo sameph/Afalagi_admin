@@ -8,7 +8,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Mail, Phone, MapPin } from "lucide-react";
 import { useEffect, useState } from "react";
-import { fetchUsers, type User } from "@/lib/api";
+import { fetchUsers, type User, deleteUserById } from "@/lib/api";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 const Users = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -101,9 +113,39 @@ const Users = () => {
                     </div>
                   </div>
                   
-                  <div className="space-x-2">
-                    <Button variant="outline">View Profile</Button>
-                    <Button>Contact</Button>
+                  <div className="space-x-2 flex items-center">
+                    <a href={`mailto:${user.email}`}>
+                      <Button type="button" variant="outline">Contact</Button>
+                    </a>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button type="button" variant="destructive">Delete</Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete user?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete the user and all their posts.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={async () => {
+                              try {
+                                await deleteUserById(user._id);
+                                setUsers((prev) => prev.filter((u) => u._id !== user._id));
+                                toast.success("User deleted");
+                              } catch (e: any) {
+                                toast.error(e.message || "Failed to delete user");
+                              }
+                            }}
+                          >
+                            Confirm
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
               </CardContent>

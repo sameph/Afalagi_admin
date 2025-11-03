@@ -1,29 +1,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Area, AreaChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-
-const data = [
-  { month: "Jan", lost: 145, found: 98 },
-  { month: "Feb", lost: 168, found: 112 },
-  { month: "Mar", lost: 152, found: 134 },
-  { month: "Apr", lost: 189, found: 156 },
-  { month: "May", lost: 203, found: 178 },
-  { month: "Jun", lost: 227, found: 195 },
-  { month: "Jul", lost: 234, found: 210 },
-  { month: "Aug", lost: 218, found: 198 },
-  { month: "Sep", lost: 256, found: 231 },
-  { month: "Oct", lost: 267, found: 245 },
-  { month: "Nov", lost: 289, found: 268 },
-  { month: "Dec", lost: 312, found: 287 },
-];
+import { useEffect, useState } from "react";
+import { fetchMonthlyOverview } from "@/lib/api";
 
 export function RevenueChart() {
+  const [data, setData] = useState<{ month: string; lost: number; found: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let abort = false;
+    setLoading(true);
+    fetchMonthlyOverview()
+      .then((res) => { if (!abort) { setData(res.data); setError(null); } })
+      .catch((e) => { if (!abort) setError(e.message || "Failed to load monthly stats"); })
+      .finally(() => { if (!abort) setLoading(false); });
+    return () => { abort = true; };
+  }, []);
+
   return (
     <Card className="col-span-2 border-border bg-card/50 backdrop-blur-sm shadow-card animate-fade-in">
       <CardHeader>
         <CardTitle className="text-foreground">Reports Overview</CardTitle>
-        <p className="text-sm text-muted-foreground">Lost persons & items vs found per month in 2024</p>
+        <p className="text-sm text-muted-foreground">Lost persons & items vs found per month</p>
       </CardHeader>
       <CardContent>
+        {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <ResponsiveContainer width="100%" height={300}>
           <AreaChart data={data}>
             <defs>

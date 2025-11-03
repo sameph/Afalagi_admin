@@ -1,24 +1,32 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-
-const data = [
-  { name: "Mon", reported: 42, found: 38 },
-  { name: "Tue", reported: 51, found: 45 },
-  { name: "Wed", reported: 48, found: 41 },
-  { name: "Thu", reported: 61, found: 54 },
-  { name: "Fri", reported: 73, found: 67 },
-  { name: "Sat", reported: 58, found: 52 },
-  { name: "Sun", reported: 39, found: 35 },
-];
+import { useEffect, useState } from "react";
+import { fetchWeeklyStats } from "@/lib/api";
 
 export function UserStatsChart() {
+  const [data, setData] = useState<{ name: string; lost: number; found: number }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let abort = false;
+    setLoading(true);
+    fetchWeeklyStats()
+      .then((res) => { if (!abort) { setData(res.data); setError(null); } })
+      .catch((e) => { if (!abort) setError(e.message || "Failed to load weekly stats"); })
+      .finally(() => { if (!abort) setLoading(false); });
+    return () => { abort = true; };
+  }, []);
+
   return (
     <Card className="border-border bg-card/50 backdrop-blur-sm shadow-card animate-fade-in">
       <CardHeader>
         <CardTitle className="text-foreground">Weekly Statistics</CardTitle>
-        <p className="text-sm text-muted-foreground">Persons & items reported vs found this week</p>
+        <p className="text-sm text-muted-foreground">Lost persons & items vs found this week</p>
       </CardHeader>
       <CardContent>
+        {loading && <p className="text-sm text-muted-foreground">Loading...</p>}
+        {error && <p className="text-sm text-destructive">{error}</p>}
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={data}>
             <XAxis 
@@ -39,7 +47,7 @@ export function UserStatsChart() {
               }}
             />
             <Bar 
-              dataKey="reported" 
+              dataKey="lost" 
               fill="hsl(217 91% 60%)" 
               radius={[8, 8, 0, 0]}
             />

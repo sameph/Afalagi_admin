@@ -7,8 +7,30 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { useEffect, useState } from "react";
+import { createAdminInvite, listAdminInvites, resendAdminInvite, revokeAdminInvite, type AdminInvite } from "@/lib/api";
+import { toast } from "sonner";
 
 const Settings = () => {
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [invites, setInvites] = useState<AdminInvite[]>([]);
+  const [loadingInvites, setLoadingInvites] = useState(false);
+
+  const loadInvites = async () => {
+    setLoadingInvites(true);
+    try {
+      const res = await listAdminInvites();
+      setInvites(res.invites);
+    } catch (e: any) {
+      toast.error(e.message || "Failed to load invites");
+    } finally {
+      setLoadingInvites(false);
+    }
+  };
+
+  useEffect(() => {
+    loadInvites();
+  }, []);
   return (
     <DashboardLayout>
       <div className="p-6 space-y-6">
@@ -20,10 +42,84 @@ const Settings = () => {
               <p className="text-muted-foreground">Manage your platform settings</p>
             </div>
           </div>
-          <ThemeToggle />
         </div>
 
         <div className="grid gap-6">
+          <Card className="border-border bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <CardTitle>Admin Invitations</CardTitle>
+              <CardDescription>Invite new admins by email and manage invitations</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2 items-end">
+                <div className="flex-1 space-y-2">
+                  <Label htmlFor="invite-email">Email address</Label>
+                  <Input id="invite-email" type="email" placeholder="name@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
+                </div>
+                <Button
+                  onClick={async () => {
+                    if (!inviteEmail) return;
+                    try {
+                      await createAdminInvite(inviteEmail);
+                      toast.success("Invitation sent");
+                      setInviteEmail("");
+                      await loadInvites();
+                    } catch (e: any) {
+                      toast.error(e.message || "Failed to send invite");
+                    }
+                  }}
+                >
+                  Send Invite
+                </Button>
+              </div>
+              <Separator />
+              <div className="space-y-3">
+                {loadingInvites && <p className="text-sm text-muted-foreground">Loading invites...</p>}
+                {invites.length === 0 && !loadingInvites && (
+                  <p className="text-sm text-muted-foreground">No invites yet.</p>
+                )}
+                {invites.map((inv) => (
+                  <div key={inv._id} className="flex items-center justify-between p-3 rounded-md border bg-card/50">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{inv.email}</p>
+                      <p className="text-xs text-muted-foreground">Status: {inv.status} • Expires: {new Date(inv.expiresAt).toLocaleString()}</p>
+                    </div>
+                    <div className="space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={async () => {
+                          try {
+                            await resendAdminInvite(inv._id);
+                            toast.success("Invite resent");
+                            await loadInvites();
+                          } catch (e: any) {
+                            toast.error(e.message || "Failed to resend invite");
+                          }
+                        }}
+                      >
+                        Resend
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        onClick={async () => {
+                          try {
+                            await revokeAdminInvite(inv._id);
+                            toast.success("Invite revoked");
+                            await loadInvites();
+                          } catch (e: any) {
+                            toast.error(e.message || "Failed to revoke invite");
+                          }
+                        }}
+                      >
+                        Revoke
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
           <Card className="border-border bg-card/50 backdrop-blur-sm">
             <CardHeader>
               <CardTitle>Platform Configuration</CardTitle>
@@ -31,7 +127,6 @@ const Settings = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="platform-name">Platform Name</Label>
                 <Input id="platform-name" defaultValue="Afalagi - Lost & Found" />
               </div>
               <div className="space-y-2">

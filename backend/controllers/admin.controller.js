@@ -315,3 +315,117 @@ export const getAllItems = async (req, res) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// ===== Admin Stats & User Management =====
+// GET /api/admin/stats/weekly
+export const getWeeklyStats = async (req, res) => {
+  try {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6); // last 7 days including today
+    const pipeline = [
+      { $match: { createdAt: { $gte: start } } },
+      {
+        $addFields: {
+          bucket: {
+            $cond: [{ $in: ["$type", ["lost_person", "lost_item"]] }, "lost", "found"],
+          },
+        },
+      },
+      {
+        $group: {
+          _id: {
+            day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+            bucket: "$bucket",
+          },
+          count: { $sum: 1 },
+        },
+      },
+    ];
+    const agg = await Post.aggregate(pipeline);
+
+    // Build last 7 days array
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString(undefined, { weekday: "short" });
+      days.push({ key, name: label, lost: 0, found: 0 });
+    }
+    const map = Object.fromEntries(days.map((d) => [d.key, d]));
+    for (const row of agg) {
+      const k = row._id.day;
+      if (map[k]) {
+        map[k][row._id.bucket] = row.count;
+      }
+    }
+    res.status(200).json({ success: true, data: days });
+  } catch (error) {
+    console.log("Error in getWeeklyStats ", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// GET /api/admin/stats/monthly
+export const getMonthlyOverview = async (req, res) => {
+  try {
+    const now = new Date();
+    // Start from 11 months ago, first day of that month
+    const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
+    const pipeline = [
+      { $match: { createdAt: { $gte: start } } },
+      {
+        $addFields: {
+          bucket: {
+            $cond: [{ $in: ["$type", ["lost_person", "lost_item"]] }, "lost", "found"],
+          },
+          month: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+        },
+      },
+      { $group: { _id: { month: "$month", bucket: "$bucket" }, count: { $sum: 1 } } },
+    ];
+    const agg = await Post.aggregate(pipeline);
+
+    // Build last 12 months labels
+    const months = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toISOString().slice(0, 7); // YYYY-MM
+      const label = d.toLocaleString(undefined, { month: "short" });
+      months.push({ key, month: label, lost: 0, found: 0 });
+    }
+    const map = Object.fromEntries(months.map((m) => [m.key, m]));
+    for (const row of agg) {
+      const k = row._id.month;
+      if (map[k]) {
+        map[k][row._id.bucket] = row.count;
+      }
+    }
+    res.status(200).json({ success: true, data: months });
+  } catch (error) {
+    console.log("Error in getMonthlyOverview ", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// DELETE /api/admin/users/:id
+export const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const me = req.userId?.toString();
+    const user = await User.findById(id);
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    if (user.role === "admin") {
+      return res.status(403).json({ success: false, message: "Cannot delete admin accounts" });
+    }
+    if (me === id) {
+      return res.status(400).json({ success: false, message: "You cannot delete your own account" });
+    }
+    // Remove user's posts as part of cleanup
+    await Post.deleteMany({ userId: id });
+    await User.findByIdAndDelete(id);
+    res.status(200).json({ success: true, message: "User deleted" });
+  } catch (error) {
+    console.log("Error in deleteUser ", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

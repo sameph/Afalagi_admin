@@ -110,3 +110,57 @@ export async function fetchAdminPosts(params?: { q?: string; status?: PostStatus
   const query = qs.toString() ? `?${qs.toString()}` : '';
   return fetchJSON<{ success: true; page: number; total: number; totalPages: number; posts: Post[] }>(`/api/admin/posts${query}`);
 }
+
+// ===== Admin Stats =====
+export async function fetchWeeklyStats() {
+  return fetchJSON<{ success: true; data: { name: string; lost: number; found: number }[] }>(
+    `/api/admin/stats/weekly`
+  );
+}
+
+export async function fetchMonthlyOverview() {
+  return fetchJSON<{ success: true; data: { month: string; lost: number; found: number }[] }>(
+    `/api/admin/stats/monthly`
+  );
+}
+
+// ===== User Management =====
+export async function deleteUserById(id: string) {
+  return fetchJSON<{ success: true; message: string }>(`/api/admin/users/${id}`, { method: 'DELETE' });
+}
+
+// ===== Admin Invites =====
+export interface AdminInvite {
+  _id: string;
+  email: string;
+  invitedBy: string;
+  status: 'pending' | 'accepted' | 'revoked' | 'expired';
+  expiresAt: string;
+  createdAt?: string;
+}
+
+export async function createAdminInvite(email: string) {
+  return fetchJSON<{ success: true; invite: AdminInvite }>(`/api/admin/invites`, {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function listAdminInvites() {
+  return fetchJSON<{ success: true; invites: AdminInvite[] }>(`/api/admin/invites`);
+}
+
+export async function resendAdminInvite(id: string) {
+  return fetchJSON<{ success: true; invite: AdminInvite }>(`/api/admin/invites/${id}/resend`, { method: 'POST' });
+}
+
+export async function revokeAdminInvite(id: string) {
+  return fetchJSON<{ success: true; invite: AdminInvite }>(`/api/admin/invites/${id}`, { method: 'DELETE' });
+}
+
+export async function acceptAdminInvite(payload: { token: string; name?: string; password?: string }) {
+  return fetchJSON<{ success: true; message: string; user: any }>(`/api/admin/invites/accept`, {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}

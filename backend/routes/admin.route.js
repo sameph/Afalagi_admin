@@ -12,6 +12,9 @@ import {
   getLostReports,
   getFoundReports,
   getAllItems,
+  getWeeklyStats,
+  getMonthlyOverview,
+  deleteUser,
 } from "../controllers/admin.controller.js";
 
 const router = express.Router();
@@ -27,9 +30,12 @@ router.post("/invites/accept", acceptInvite);
 
 // Admin data APIs
 router.get("/users", verifyToken, isAdmin, getUsers);
+router.delete("/users/:id", verifyToken, isAdmin, deleteUser);
 router.get("/posts", verifyToken, isAdmin, getAdminPosts);
 router.get("/reports/lost", verifyToken, isAdmin, getLostReports);
 router.get("/reports/found", verifyToken, isAdmin, getFoundReports);
 router.get("/items", verifyToken, isAdmin, getAllItems);
+router.get("/stats/weekly", verifyToken, isAdmin, getWeeklyStats);
+router.get("/stats/monthly", verifyToken, isAdmin, getMonthlyOverview);
 
 export default router;
