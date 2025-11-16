@@ -1,6 +1,7 @@
 import { 
   LayoutDashboard, 
   Users, 
+  UserPlus,
   PackageSearch, 
   Settings, 
   Activity,
@@ -46,6 +47,7 @@ const menuItems = [
   { title: "Found Reports", url: "/found", icon: PackageCheck },
   { title: "Matches", url: "/matches", icon: GitMerge },
   { title: "Users", url: "/users", icon: Users },
+  { title: "Invite Admin", url: "/invite-admin", icon: UserPlus },
   { title: "Activity", url: "/activity", icon: Activity },
   { title: "Settings", url: "/settings", icon: Settings },
 ];

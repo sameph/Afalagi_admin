@@ -18,6 +18,7 @@ import Settings from "./pages/Settings";
 import Profile from "./pages/Profile";
 import Login from "./pages/Login";
 import AcceptAdmin from "./pages/AcceptAdmin";
+import InviteAdmin from "./pages/InviteAdmin";
 import NotFound from "./pages/NotFound";
 // Protected route component using AuthContext
 const ProtectedRoute = ({ children }: { children: JSX.Element }) => {
@@ -109,6 +110,11 @@ const App = () => (
             <GuestRoute>
               <Login />
             </GuestRoute>
+          } />
+          <Route path="/invite-admin" element={
+            <ProtectedRoute>
+              <InviteAdmin />
+            </ProtectedRoute>
           } />
           {/* Public route to accept admin invitations */}
           <Route path="/accept-admin" element={<AcceptAdmin />} />

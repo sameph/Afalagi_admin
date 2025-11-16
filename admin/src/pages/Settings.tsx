@@ -57,6 +57,7 @@ const Settings = () => {
                   <Input id="invite-email" type="email" placeholder="name@example.com" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} />
                 </div>
                 <Button
+                  type="button"
                   onClick={async () => {
                     if (!inviteEmail) return;
                     try {
@@ -86,6 +87,7 @@ const Settings = () => {
                     </div>
                     <div className="space-x-2">
                       <Button
+                        type="button"
                         variant="outline"
                         onClick={async () => {
                           try {
@@ -100,6 +102,7 @@ const Settings = () => {
                         Resend
                       </Button>
                       <Button
+                        type="button"
                         variant="destructive"
                         onClick={async () => {
                           try {
