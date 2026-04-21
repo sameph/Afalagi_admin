@@ -7,16 +7,37 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useEffect, useState } from "react";
 
 export default function Profile() {
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, updateProfile } = useAuth();
+  const [name, setName] = useState<string>("");
+  const [email, setEmail] = useState<string>("");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setName(user?.name || "");
+    setEmail(user?.email || "");
+  }, [user]);
 
   const handleLogout = async () => {
     await logout();
     toast({ title: "Logged out successfully", description: "You have been logged out." });
     navigate("/login");
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await updateProfile({ name: name.trim() });
+      toast({ title: "Profile updated", description: "Your changes have been saved." });
+    } catch (e: any) {
+      toast({ title: "Update failed", description: e.message || "Could not save changes", variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -42,11 +63,11 @@ export default function Profile() {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="name">Name</Label>
-              <Input id="name" defaultValue={user?.name || ""} />
+              <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
-              <Input id="email" type="email" defaultValue={user?.email || ""} disabled />
+              <Input id="email" type="email" value={email} disabled />
             </div>
             <div className="space-y-2">
               <Label htmlFor="role">Role</Label>
@@ -64,7 +85,9 @@ export default function Profile() {
             <Button variant="outline" onClick={handleLogout}>
               Logout
             </Button>
-            <Button>Save Changes</Button>
+            <Button onClick={handleSave} disabled={saving || !name.trim()}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </div>
       </div>

@@ -1,161 +1,7 @@
-import crypto from "crypto";
-import bcryptjs from "bcryptjs";
-import { AdminInvite } from "../models/adminInvite.model.js";
 import { User } from "../models/user.model.js";
 import { Post } from "../models/post.model.js";
-import { sendAdminInviteEmail } from "../mailtrap/emails.js";
-import { generateTokenAndSetCookie } from "../utils/generateTokenAndSetCookie.js";
 
-const INVITE_TTL_DAYS = 7;
-
-const buildAcceptUrl = (token) => {
-  const base = process.env.CLIENT_URL || "http://localhost:5173";
-  const url = new URL(base);
-  // Frontend should implement this route to accept invites
-  url.pathname = "/accept-admin";
-  url.searchParams.set("token", token);
-  return url.toString();
-};
-
-export const inviteAdmin = async (req, res) => {
-  try {
-    const { email } = req.body;
-    if (!email || typeof email !== "string") {
-      return res.status(400).json({ success: false, message: "Email is required" });
-    }
-
-    const existingAdmin = await User.findOne({ email, role: "admin" });
-    if (existingAdmin) {
-      return res.status(409).json({ success: false, message: "User is already an admin" });
-    }
-
-    // Optional: prevent multiple active invites for same email
-    await AdminInvite.updateMany(
-      { email, status: "pending" },
-      { $set: { status: "revoked" } }
-    );
-
-    const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
-
-    const invite = await AdminInvite.create({
-      email,
-      token,
-      invitedBy: req.userId,
-      expiresAt,
-    });
-
-    const acceptURL = buildAcceptUrl(token);
-    await sendAdminInviteEmail(email, acceptURL);
-
-    res.status(201).json({ success: true, invite });
-  } catch (error) {
-    console.log("Error in inviteAdmin ", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-export const listInvites = async (req, res) => {
-  try {
-    const invites = await AdminInvite.find().sort({ createdAt: -1 }).limit(200);
-    res.status(200).json({ success: true, invites });
-  } catch (error) {
-    console.log("Error in listInvites ", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-export const revokeInvite = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const invite = await AdminInvite.findById(id);
-    if (!invite) return res.status(404).json({ success: false, message: "Invite not found" });
-    if (invite.status !== "pending") {
-      return res.status(400).json({ success: false, message: `Cannot revoke invite with status ${invite.status}` });
-    }
-    invite.status = "revoked";
-    await invite.save();
-    res.status(200).json({ success: true, invite });
-  } catch (error) {
-    console.log("Error in revokeInvite ", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-export const resendInvite = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const invite = await AdminInvite.findById(id);
-    if (!invite) return res.status(404).json({ success: false, message: "Invite not found" });
-
-    // Refresh token and expiry
-    invite.token = crypto.randomBytes(32).toString("hex");
-    invite.expiresAt = new Date(Date.now() + INVITE_TTL_DAYS * 24 * 60 * 60 * 1000);
-    invite.status = "pending";
-    await invite.save();
-
-    const acceptURL = buildAcceptUrl(invite.token);
-    await sendAdminInviteEmail(invite.email, acceptURL);
-
-    res.status(200).json({ success: true, invite });
-  } catch (error) {
-    console.log("Error in resendInvite ", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-export const acceptInvite = async (req, res) => {
-  try {
-    const { token, name, password } = req.body;
-    if (!token) return res.status(400).json({ success: false, message: "Token is required" });
-
-    const invite = await AdminInvite.findOne({ token });
-    if (!invite) return res.status(400).json({ success: false, message: "Invalid or expired invite" });
-
-    if (invite.status !== "pending") {
-      return res.status(400).json({ success: false, message: `Invite already ${invite.status}` });
-    }
-    if (invite.expiresAt.getTime() < Date.now()) {
-      invite.status = "expired";
-      await invite.save();
-      return res.status(400).json({ success: false, message: "Invite expired" });
-    }
-
-    let user = await User.findOne({ email: invite.email });
-    if (user) {
-      user.role = "admin";
-      user.isVerified = true;
-      await user.save();
-    } else {
-      if (!name || !password) {
-        return res.status(400).json({ success: false, message: "Name and password are required to create admin account" });
-      }
-      const hashedPassword = await bcryptjs.hash(password, 10);
-      user = await User.create({
-        email: invite.email,
-        name,
-        password: hashedPassword,
-        isVerified: true,
-        role: "admin",
-      });
-    }
-
-    invite.status = "accepted";
-    invite.acceptedAt = new Date();
-    await invite.save();
-
-    // Log in the user by setting auth cookie
-    generateTokenAndSetCookie(res, user._id);
-
-    res.status(200).json({ success: true, message: "Invitation accepted", user: { ...user._doc, password: undefined } });
-  } catch (error) {
-    console.log("Error in acceptInvite ", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// ===== Admin Data APIs =====
-// GET /api/admin/users
+// Users
 export const getUsers = async (req, res) => {
   try {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
@@ -165,267 +11,327 @@ export const getUsers = async (req, res) => {
     const filter = {};
     if (q) {
       filter.$or = [
-        { name: { $regex: q, $options: "i" } },
         { email: { $regex: q, $options: "i" } },
+        { name: { $regex: q, $options: "i" } },
       ];
     }
 
-    const [total, users] = await Promise.all([
+    const [items, total] = await Promise.all([
+      User.find(filter).select("-password").sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
       User.countDocuments(filter),
-      User.find(filter)
-        .select("-password")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
     ]);
 
-    res.status(200).json({ success: true, page, total, totalPages: Math.ceil(total / limit), users });
-  } catch (error) {
-    console.log("Error in getUsers ", error);
+    // Frontend expects: users, page, total, totalPages
+    res.json({ success: true, users: items, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    console.log("Error in getUsers ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Helper to build post filter based on query and allowed types
-const buildPostFilter = (req, allowedTypes) => {
-  const q = (req.query.q || "").trim();
-  const status = (req.query.status || "").trim();
-  const typeParam = (req.query.type || "").trim();
-
-  let types = allowedTypes;
-  if (typeParam) {
-    const inputTypes = typeParam.split(",").map((t) => t.trim()).filter(Boolean);
-    if (inputTypes.length) types = inputTypes;
+export const updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    if (!role || !["user", "admin"].includes(role)) {
+      return res.status(400).json({ success: false, message: "Invalid role" });
+    }
+    const user = await User.findByIdAndUpdate(id, { role }, { new: true }).select("-password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.log("Error in updateUserRole ", err);
+    res.status(500).json({ success: false, message: "Server error" });
   }
-
-  const filter = { type: { $in: types } };
-  if (q) {
-    filter.$or = [
-      { title: { $regex: q, $options: "i" } },
-      { description: { $regex: q, $options: "i" } },
-      { personName: { $regex: q, $options: "i" } },
-      { itemName: { $regex: q, $options: "i" } },
-      { category: { $regex: q, $options: "i" } },
-    ];
-  }
-  if (status && ["open", "closed", "resolved"].includes(status)) {
-    filter.status = status;
-  }
-  return filter;
 };
 
-// Generic posts endpoint for admin with optional type filter
-// GET /api/admin/posts?type=lost_item,found_item&status=open&q=phone&page=1&limit=20
-export const getAdminPosts = async (req, res) => {
+export const banUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(id, { status: "banned" }, { new: true }).select("-password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.log("Error in banUser ", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+export const unbanUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const user = await User.findByIdAndUpdate(id, { status: "active" }, { new: true }).select("-password");
+    if (!user) return res.status(404).json({ success: false, message: "User not found" });
+    res.json({ success: true, user });
+  } catch (err) {
+    console.log("Error in unbanUser ", err);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// Posts
+// Helper to build posts response with optional base filter
+async function listPosts(req, res, baseFilter = {}) {
   try {
     const page = Math.max(parseInt(req.query.page || "1", 10), 1);
     const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 100);
-    const allowed = [
-      "lost_person",
-      "found_person",
-      "lost_item",
-      "found_item",
-    ];
-    const filter = buildPostFilter(req, allowed);
+    const type = (req.query.type || "").trim();
+    const status = (req.query.status || "").trim();
+    const q = (req.query.q || "").trim();
 
-    const [total, posts] = await Promise.all([
+    const filter = { ...baseFilter };
+    if (type) filter.type = type;
+    if (status) filter.status = status;
+    if (q) {
+      filter.$or = [
+        { title: { $regex: q, $options: "i" } },
+        { personName: { $regex: q, $options: "i" } },
+        { itemName: { $regex: q, $options: "i" } },
+        { description: { $regex: q, $options: "i" } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      Post.find(filter).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit),
       Post.countDocuments(filter),
-      Post.find(filter)
-        .populate("userId", "name email role")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
     ]);
 
-    res.status(200).json({ success: true, page, total, totalPages: Math.ceil(total / limit), posts });
-  } catch (error) {
-    console.log("Error in getAdminPosts ", error);
+    // Frontend expects: posts, page, total, totalPages
+    res.json({ success: true, posts: items, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    console.log("Error in listPosts ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
-};
+}
 
-// Lost reports: lost_person + lost_item
-// GET /api/admin/reports/lost
-export const getLostReports = async (req, res) => {
+export const getPosts = async (req, res) => listPosts(req, res);
+export const getLostReports = async (req, res) =>
+  listPosts(req, res, { type: { $in: ["lost_person", "lost_item"] } });
+export const getFoundReports = async (req, res) =>
+  listPosts(req, res, { type: { $in: ["found_person", "found_item"] } });
+export const getItemsList = async (req, res) =>
+  listPosts(req, res, { type: { $in: ["lost_item", "found_item"] } });
+
+export const updatePostStatus = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 100);
-    const filter = buildPostFilter(req, ["lost_person", "lost_item"]);
-
-    const [total, posts] = await Promise.all([
-      Post.countDocuments(filter),
-      Post.find(filter)
-        .populate("userId", "name email role")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
-    ]);
-
-    res.status(200).json({ success: true, page, total, totalPages: Math.ceil(total / limit), posts });
-  } catch (error) {
-    console.log("Error in getLostReports ", error);
+    const { id } = req.params;
+    const { status } = req.body;
+    if (!status || !["open", "closed", "resolved"].includes(status)) {
+      return res.status(400).json({ success: false, message: "Invalid status" });
+    }
+    const post = await Post.findByIdAndUpdate(id, { status }, { new: true });
+    if (!post) return res.status(404).json({ success: false, message: "Post not found" });
+    res.json({ success: true, post });
+  } catch (err) {
+    console.log("Error in updatePostStatus ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// Found reports: found_person + found_item
-// GET /api/admin/reports/found
-export const getFoundReports = async (req, res) => {
+export const deletePost = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 100);
-    const filter = buildPostFilter(req, ["found_person", "found_item"]);
-
-    const [total, posts] = await Promise.all([
-      Post.countDocuments(filter),
-      Post.find(filter)
-        .populate("userId", "name email role")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
-    ]);
-
-    res.status(200).json({ success: true, page, total, totalPages: Math.ceil(total / limit), posts });
-  } catch (error) {
-    console.log("Error in getFoundReports ", error);
+    const { id } = req.params;
+    const post = await Post.findByIdAndDelete(id);
+    if (!post) return res.status(404).json({ success: false, message: "Post not found" });
+    res.json({ success: true, message: "Post deleted" });
+  } catch (err) {
+    console.log("Error in deletePost ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// All items (not persons): lost_item + found_item
-// GET /api/admin/items
-export const getAllItems = async (req, res) => {
+// Stats
+export const getDashboardStats = async (req, res) => {
   try {
-    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
-    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 100);
-    const filter = buildPostFilter(req, ["lost_item", "found_item"]);
-
-    const [total, posts] = await Promise.all([
-      Post.countDocuments(filter),
-      Post.find(filter)
-        .populate("userId", "name email role")
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit),
+    const [totalUsers, totalPosts] = await Promise.all([
+      User.countDocuments({}),
+      Post.countDocuments({}),
     ]);
 
-    res.status(200).json({ success: true, page, total, totalPages: Math.ceil(total / limit), posts });
-  } catch (error) {
-    console.log("Error in getAllItems ", error);
+    const statusAgg = await Post.aggregate([
+      { $group: { _id: "$status", count: { $sum: 1 } } },
+    ]);
+    const byStatus = statusAgg.reduce((acc, cur) => { acc[cur._id] = cur.count; return acc; }, {});
+
+    const rolesAgg = await User.aggregate([
+      { $group: { _id: "$role", count: { $sum: 1 } } },
+    ]);
+    const byRole = rolesAgg.reduce((acc, cur) => { acc[cur._id] = cur.count; return acc; }, {});
+
+    res.json({ success: true, stats: { totalUsers, totalPosts, byStatus, byRole } });
+  } catch (err) {
+    console.log("Error in getDashboardStats ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// ===== Admin Stats & User Management =====
-// GET /api/admin/stats/weekly
+// Weekly stats: returns data array of { name, lost, found } for last 7 days
 export const getWeeklyStats = async (req, res) => {
   try {
     const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6); // last 7 days including today
-    const pipeline = [
+    const start = new Date(now);
+    start.setDate(now.getDate() - 6);
+    start.setHours(0, 0, 0, 0);
+
+    const agg = await Post.aggregate([
       { $match: { createdAt: { $gte: start } } },
       {
-        $addFields: {
-          bucket: {
-            $cond: [{ $in: ["$type", ["lost_person", "lost_item"]] }, "lost", "found"],
-          },
-        },
+        $project: {
+          day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          isLost: { $cond: [{ $or: [
+            { $eq: ["$type", "lost_person"] },
+            { $eq: ["$type", "lost_item"] },
+          ] }, 1, 0] },
+          isFound: { $cond: [{ $or: [
+            { $eq: ["$type", "found_person"] },
+            { $eq: ["$type", "found_item"] },
+          ] }, 1, 0] },
+        }
       },
-      {
-        $group: {
-          _id: {
-            day: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-            bucket: "$bucket",
-          },
-          count: { $sum: 1 },
-        },
-      },
-    ];
-    const agg = await Post.aggregate(pipeline);
+      { $group: { _id: "$day", lost: { $sum: "$isLost" }, found: { $sum: "$isFound" } } },
+    ]);
 
-    // Build last 7 days array
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+    // Build 7-day series
+    const data = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(start);
+      d.setDate(start.getDate() + i);
       const key = d.toISOString().slice(0, 10);
-      const label = d.toLocaleDateString(undefined, { weekday: "short" });
-      days.push({ key, name: label, lost: 0, found: 0 });
+      const row = agg.find(a => a._id === key);
+      data.push({ name: key, lost: row?.lost || 0, found: row?.found || 0 });
     }
-    const map = Object.fromEntries(days.map((d) => [d.key, d]));
-    for (const row of agg) {
-      const k = row._id.day;
-      if (map[k]) {
-        map[k][row._id.bucket] = row.count;
-      }
-    }
-    res.status(200).json({ success: true, data: days });
-  } catch (error) {
-    console.log("Error in getWeeklyStats ", error);
+
+    res.json({ success: true, data });
+  } catch (err) {
+    console.log("Error in getWeeklyStats ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// GET /api/admin/stats/monthly
-export const getMonthlyOverview = async (req, res) => {
+// Monthly overview: last 12 months counts
+export const getMonthlyStats = async (req, res) => {
   try {
     const now = new Date();
-    // Start from 11 months ago, first day of that month
     const start = new Date(now.getFullYear(), now.getMonth() - 11, 1);
-    const pipeline = [
+
+    const agg = await Post.aggregate([
       { $match: { createdAt: { $gte: start } } },
       {
-        $addFields: {
-          bucket: {
-            $cond: [{ $in: ["$type", ["lost_person", "lost_item"]] }, "lost", "found"],
-          },
-          month: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
-        },
+        $project: {
+          ym: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
+          isLost: { $cond: [{ $or: [
+            { $eq: ["$type", "lost_person"] },
+            { $eq: ["$type", "lost_item"] },
+          ] }, 1, 0] },
+          isFound: { $cond: [{ $or: [
+            { $eq: ["$type", "found_person"] },
+            { $eq: ["$type", "found_item"] },
+          ] }, 1, 0] },
+        }
       },
-      { $group: { _id: { month: "$month", bucket: "$bucket" }, count: { $sum: 1 } } },
-    ];
-    const agg = await Post.aggregate(pipeline);
+      { $group: { _id: "$ym", lost: { $sum: "$isLost" }, found: { $sum: "$isFound" } } },
+    ]);
 
-    // Build last 12 months labels
-    const months = [];
+    const data = [];
     for (let i = 11; i >= 0; i--) {
       const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const key = d.toISOString().slice(0, 7); // YYYY-MM
-      const label = d.toLocaleString(undefined, { month: "short" });
-      months.push({ key, month: label, lost: 0, found: 0 });
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      const row = agg.find(a => a._id === key);
+      data.push({ month: key, lost: row?.lost || 0, found: row?.found || 0 });
     }
-    const map = Object.fromEntries(months.map((m) => [m.key, m]));
-    for (const row of agg) {
-      const k = row._id.month;
-      if (map[k]) {
-        map[k][row._id.bucket] = row.count;
-      }
-    }
-    res.status(200).json({ success: true, data: months });
-  } catch (error) {
-    console.log("Error in getMonthlyOverview ", error);
+
+    res.json({ success: true, data });
+  } catch (err) {
+    console.log("Error in getMonthlyStats ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// DELETE /api/admin/users/:id
-export const deleteUser = async (req, res) => {
+// Matches (claims)
+// Lists match claims across posts with pagination and filters
+export const getMatches = async (req, res) => {
   try {
-    const { id } = req.params;
-    const me = req.userId?.toString();
-    const user = await User.findById(id);
-    if (!user) return res.status(404).json({ success: false, message: "User not found" });
-    if (user.role === "admin") {
-      return res.status(403).json({ success: false, message: "Cannot delete admin accounts" });
-    }
-    if (me === id) {
-      return res.status(400).json({ success: false, message: "You cannot delete your own account" });
-    }
-    // Remove user's posts as part of cleanup
-    await Post.deleteMany({ userId: id });
-    await User.findByIdAndDelete(id);
-    res.status(200).json({ success: true, message: "User deleted" });
-  } catch (error) {
-    console.log("Error in deleteUser ", error);
+    const page = Math.max(parseInt(req.query.page || "1", 10), 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit || "20", 10), 1), 100);
+    const status = (req.query.status || "").trim(); // pending | approved | rejected
+    const type = (req.query.type || "").trim();     // owner | finder
+    const q = (req.query.q || "").trim();           // search in claimant/post fields
+
+    const matchStage = {};
+    if (status) matchStage["matches.status"] = status;
+    if (type) matchStage["matches.type"] = type;
+
+    const pipeline = [
+      { $match: {} },
+      { $unwind: "$matches" },
+      ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
+      ...(q
+        ? [{
+            $match: {
+              $or: [
+                { title: { $regex: q, $options: "i" } },
+                { personName: { $regex: q, $options: "i" } },
+                { itemName: { $regex: q, $options: "i" } },
+                { "matches.name": { $regex: q, $options: "i" } },
+                { "matches.email": { $regex: q, $options: "i" } },
+                { "matches.contactPhone": { $regex: q, $options: "i" } },
+              ],
+            },
+          }]
+        : []),
+      { $sort: { "matches.createdAt": -1 } },
+      {
+        $project: {
+          _id: 0,
+          postId: "$_id",
+          postTitle: "$title",
+          postType: "$type",
+          postStatus: "$status",
+          matchId: "$matches._id",
+          claimantUserId: "$matches.userId",
+          claimantName: "$matches.name",
+          claimantEmail: "$matches.email",
+          claimantPhone: "$matches.contactPhone",
+          matchType: "$matches.type",
+          message: "$matches.message",
+          matchStatus: "$matches.status",
+          createdAt: "$matches.createdAt",
+        },
+      },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ];
+
+    const countPipeline = [
+      { $match: {} },
+      { $unwind: "$matches" },
+      ...(Object.keys(matchStage).length ? [{ $match: matchStage }] : []),
+      ...(q
+        ? [{
+            $match: {
+              $or: [
+                { title: { $regex: q, $options: "i" } },
+                { personName: { $regex: q, $options: "i" } },
+                { itemName: { $regex: q, $options: "i" } },
+                { "matches.name": { $regex: q, $options: "i" } },
+                { "matches.email": { $regex: q, $options: "i" } },
+                { "matches.contactPhone": { $regex: q, $options: "i" } },
+              ],
+            },
+          }]
+        : []),
+      { $count: "total" },
+    ];
+
+    const [items, totalRes] = await Promise.all([
+      Post.aggregate(pipeline),
+      Post.aggregate(countPipeline),
+    ]);
+    const total = totalRes?.[0]?.total || 0;
+
+    res.json({ success: true, matches: items, total, page, totalPages: Math.ceil(total / limit) });
+  } catch (err) {
+    console.log("Error in getMatches ", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

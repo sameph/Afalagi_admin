@@ -1,41 +1,50 @@
 import express from "express";
 import { verifyToken } from "../middleware/verifyToken.js";
-import { isAdmin } from "../middleware/isAdmin.js";
+import { requireAdmin } from "../middleware/requireAdmin.js";
 import {
-  inviteAdmin,
-  listInvites,
-  revokeInvite,
-  resendInvite,
-  acceptInvite,
   getUsers,
-  getAdminPosts,
+  updateUserRole,
+  banUser,
+  unbanUser,
+  getPosts,
+  updatePostStatus,
+  deletePost,
+  getDashboardStats,
+  getWeeklyStats,
+  getMonthlyStats,
   getLostReports,
   getFoundReports,
-  getAllItems,
-  getWeeklyStats,
-  getMonthlyOverview,
-  deleteUser,
+  getItemsList,
+  getMatches,
 } from "../controllers/admin.controller.js";
 
 const router = express.Router();
 
-// Admin-only endpoints
-router.post("/invites", verifyToken, isAdmin, inviteAdmin);
-router.get("/invites", verifyToken, isAdmin, listInvites);
-router.post("/invites/:id/resend", verifyToken, isAdmin, resendInvite);
-router.delete("/invites/:id", verifyToken, isAdmin, revokeInvite);
+// All admin routes require auth + admin role
+router.use(verifyToken, requireAdmin);
 
-// Public endpoint to accept invite (requires token), returns auth cookie on success
-router.post("/invites/accept", acceptInvite);
+// Dashboard stats
+router.get("/dashboard", getDashboardStats);
+router.get("/stats/weekly", getWeeklyStats);
+router.get("/stats/monthly", getMonthlyStats);
 
-// Admin data APIs
-router.get("/users", verifyToken, isAdmin, getUsers);
-router.delete("/users/:id", verifyToken, isAdmin, deleteUser);
-router.get("/posts", verifyToken, isAdmin, getAdminPosts);
-router.get("/reports/lost", verifyToken, isAdmin, getLostReports);
-router.get("/reports/found", verifyToken, isAdmin, getFoundReports);
-router.get("/items", verifyToken, isAdmin, getAllItems);
-router.get("/stats/weekly", verifyToken, isAdmin, getWeeklyStats);
-router.get("/stats/monthly", verifyToken, isAdmin, getMonthlyOverview);
+// Users management
+router.get("/users", getUsers);
+router.patch("/users/:id/role", updateUserRole);
+router.patch("/users/:id/ban", banUser);
+router.patch("/users/:id/unban", unbanUser);
+
+// Posts moderation
+router.get("/posts", getPosts);
+router.patch("/posts/:id/status", updatePostStatus);
+router.delete("/posts/:id", deletePost);
+
+// Matches moderation
+router.get("/matches", getMatches);
+
+// Aliases expected by frontend helpers
+router.get("/reports/lost", getLostReports);
+router.get("/reports/found", getFoundReports);
+router.get("/items", getItemsList);
 
 export default router;

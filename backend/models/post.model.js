@@ -60,6 +60,19 @@ const postSchema = new mongoose.Schema(
       default: "medium",
     },
     rewardAmount: Number,
+    // Matches/claims recorded by users indicating a possible owner/finder
+    matches: [
+      {
+        userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: false },
+        name: String,
+        email: String,
+        contactPhone: String,
+        type: { type: String, enum: ['owner', 'finder'] }, // owner: "This is mine"; finder: "I found this"
+        message: String,
+        status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     isPublic: { type: Boolean, default: true },
   },
   { timestamps: true } // adds createdAt & updatedAt automatically

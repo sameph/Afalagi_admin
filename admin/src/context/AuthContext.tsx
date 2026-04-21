@@ -17,6 +17,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  updateProfile: (payload: { name?: string; profilePicture?: string }) => Promise<User>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,6 +90,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setUser(null);
   };
 
+  const updateProfile = async (payload: { name?: string; profilePicture?: string }) => {
+    const res = await fetch(`${API}/api/auth/profile`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!data.success) {
+      throw new Error(data.message || 'Failed to update profile');
+    }
+    setUser(data.user);
+    return data.user as User;
+  };
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -102,6 +118,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         login,
         logout,
         checkAuth,
+        updateProfile,
       }}
     >
       {children}

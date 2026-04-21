@@ -15,6 +15,46 @@ export interface User {
   createdAt?: string;
 }
 
+// ===== Matches (Claims) =====
+export interface AdminMatch {
+  postId: string;
+  postTitle: string;
+  postType: PostType;
+  postStatus: PostStatus;
+  matchId: string;
+  claimantUserId?: string;
+  claimantName?: string;
+  claimantEmail?: string;
+  claimantPhone?: string;
+  matchType: 'owner' | 'finder';
+  message?: string;
+  matchStatus: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
+
+export async function fetchMatches(params?: {
+  q?: string;
+  page?: number;
+  limit?: number;
+  status?: 'pending' | 'approved' | 'rejected';
+  type?: 'owner' | 'finder';
+}) {
+  const qs = new URLSearchParams();
+  if (params?.q) qs.set('q', params.q);
+  if (params?.page) qs.set('page', String(params.page));
+  if (params?.limit) qs.set('limit', String(params.limit));
+  if (params?.status) qs.set('status', params.status);
+  if (params?.type) qs.set('type', params.type);
+  const query = qs.toString() ? `?${qs.toString()}` : '';
+  return fetchJSON<{
+    success: true;
+    matches: AdminMatch[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }>(`/api/admin/matches${query}`);
+}
+
 export interface Post {
   _id: string;
   userId: { _id: string; name: string; email: string; role: Role } | string;

@@ -6,34 +6,43 @@ import { fileURLToPath } from "url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Configure storage with dynamic subfolders
+// Configure storage to save files in appropriate subdirectories
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const baseUploads = path.join(__dirname, "../../uploads");
-    // Determine logical group
-    const type = (req.body?.type || "").toString();
-    let group = "misc";
+    const baseDir = path.join(__dirname, "../uploads");
+    let uploadDir = baseDir;
+    
+    // Determine subdirectory based on file type
     if (file.fieldname === "profileImage") {
-      group = "profiles";
-    } else if (file.fieldname === "personImages" || type.startsWith("lost_person") || type.startsWith("found_person")) {
-      group = path.join("posts", "persons");
-    } else if (file.fieldname === "itemImages" || type.startsWith("lost_item") || type.startsWith("found_item")) {
-      group = path.join("posts", "items");
+      uploadDir = path.join(baseDir, "profiles");
+    } else if (file.fieldname === "personImages") {
+      uploadDir = path.join(baseDir, "posts/persons");
+    } else if (file.fieldname === "itemImages") {
+      uploadDir = path.join(baseDir, "posts/items");
     }
-
-    const now = new Date();
-    const year = String(now.getFullYear());
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const targetDir = path.join(baseUploads, group, year, month);
-
-    fs.mkdir(targetDir, { recursive: true }, (err) => {
-      if (err) return cb(err, targetDir);
-      cb(null, targetDir);
+    
+    // Create directory if it doesn't exist
+    fs.mkdir(uploadDir, { recursive: true }, (err) => {
+      if (err) return cb(err, uploadDir);
+      cb(null, uploadDir);
     });
   },
   filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, uniqueSuffix + path.extname(file.originalname));
+    // Generate unique filename with timestamp
+    const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+    const ext = path.extname(file.originalname).toLowerCase();
+    
+    // Set appropriate prefix based on file type
+    let prefix = "file";
+    if (file.fieldname === "profileImage") {
+      prefix = "profile";
+    } else if (file.fieldname === "personImages") {
+      prefix = "person";
+    } else if (file.fieldname === "itemImages") {
+      prefix = "item";
+    }
+    
+    cb(null, `${prefix}-${uniqueSuffix}${ext}`);
   },
 });
 

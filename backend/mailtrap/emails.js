@@ -1,13 +1,13 @@
 import {
-    PASSWORD_RESET_REQUEST_TEMPLATE,
-    PASSWORD_RESET_SUCCESS_TEMPLATE,
-    VERIFICATION_EMAIL_TEMPLATE,
-    ADMIN_INVITE_TEMPLATE,
+	PASSWORD_RESET_REQUEST_TEMPLATE,
+	PASSWORD_RESET_SUCCESS_TEMPLATE,
+	VERIFICATION_EMAIL_TEMPLATE,
 } from "./emailTemplates.js";
 import { mailtrapClient, sender } from "./mailtrap.config.js";
 
 export const sendVerificationEmail = async (email, verificationToken) => {
 	const recipient = [{ email }];
+
 	try {
 		const response = await mailtrapClient.send({
 			from: sender,
@@ -23,23 +23,6 @@ export const sendVerificationEmail = async (email, verificationToken) => {
 
 		throw new Error(`Error sending verification email: ${error}`);
 	}
-};
-
-export const sendAdminInviteEmail = async (email, acceptURL) => {
-    const recipient = [{ email }];
-    try {
-        const response = await mailtrapClient.send({
-            from: sender,
-            to: recipient,
-            subject: "Afalagi Admin Invitation",
-            html: ADMIN_INVITE_TEMPLATE.replace("{acceptURL}", acceptURL),
-            category: "Admin Invitation",
-        });
-        console.log("Admin invite email sent", response);
-    } catch (error) {
-        console.error("Error sending admin invite email", error);
-        throw new Error(`Error sending admin invite email: ${error}`);
-    }
 };
 
 export const sendWelcomeEmail = async (email, name) => {
