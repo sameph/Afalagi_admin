@@ -46,7 +46,7 @@ const Users = () => {
   }, [q]);
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SidebarTrigger />
@@ -72,7 +72,7 @@ const Users = () => {
 
         <div className="grid gap-4">
           {users.map((user) => (
-            <Card key={user._id} className="border-border bg-card/50 backdrop-blur-sm hover:shadow-glow transition-all">
+            <Card key={user._id} className="border-border/50 bg-card/40 backdrop-blur-xl shadow-card hover:shadow-glow ring-1 ring-white/10 dark:ring-white/5 transition-all duration-500 hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-start justify-between">
                   <div className="flex gap-4 flex-1">

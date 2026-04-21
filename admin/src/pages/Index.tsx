@@ -15,7 +15,7 @@ const Index = () => {
   const { user } = useAuth();
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -39,7 +39,7 @@ const Index = () => {
         </div>
 
         {/* Quick Actions */}
-        <Card className="bg-card/50 border-border">
+        <Card className="bg-card/40 backdrop-blur-xl border-border/50 shadow-card">
           <CardHeader>
             <CardTitle>Quick Actions</CardTitle>
           </CardHeader>
@@ -107,8 +107,12 @@ const Index = () => {
 
         {/* Charts */}
         <div className="grid gap-6 lg:grid-cols-3">
-          <RevenueChart />
-          <ActivityFeed />
+          <div className="lg:col-span-2">
+            <RevenueChart />
+          </div>
+          <div className="lg:col-span-1">
+            <ActivityFeed />
+          </div>
         </div>
 
         {/* User Stats */}

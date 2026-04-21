@@ -11,7 +11,7 @@ interface MetricCardProps {
 
 export function MetricCard({ title, value, change, icon: Icon, trend }: MetricCardProps) {
   return (
-    <Card className="border-border bg-card/50 backdrop-blur-sm shadow-card hover:shadow-glow transition-all duration-300 hover:scale-105 animate-scale-in">
+    <Card className="border-border/50 bg-card/40 backdrop-blur-xl shadow-card hover:shadow-glow ring-1 ring-white/10 dark:ring-white/5 transition-all duration-500 hover:-translate-y-1 hover:scale-105 animate-scale-in">
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="text-sm font-medium text-muted-foreground">
           {title}

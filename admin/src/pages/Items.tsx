@@ -30,7 +30,7 @@ const Items = () => {
   const personsData = useMemo(() => posts.filter(p => p.type === 'lost_person' || p.type === 'found_person'), [posts]);
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 md:p-8 space-y-8 max-w-7xl mx-auto w-full">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SidebarTrigger />
@@ -66,7 +66,7 @@ const Items = () => {
 
           <TabsContent value="items" className="space-y-4">
             {itemsData.map((item) => (
-              <Card key={item._id} className="border-border bg-card/50 backdrop-blur-sm hover:shadow-glow transition-all">
+              <Card key={item._id} className="border-border/50 bg-card/40 backdrop-blur-xl shadow-card hover:shadow-glow ring-1 ring-white/10 dark:ring-white/5 transition-all duration-500 hover:-translate-y-1">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="space-y-2 flex-1">
@@ -98,7 +98,7 @@ const Items = () => {
 
           <TabsContent value="persons" className="space-y-4">
             {personsData.map((person) => (
-              <Card key={person._id} className="border-border bg-card/50 backdrop-blur-sm hover:shadow-glow transition-all">
+              <Card key={person._id} className="border-border/50 bg-card/40 backdrop-blur-xl shadow-card hover:shadow-glow ring-1 ring-white/10 dark:ring-white/5 transition-all duration-500 hover:-translate-y-1">
                 <CardContent className="p-6">
                   <div className="flex items-start justify-between">
                     <div className="space-y-2 flex-1">

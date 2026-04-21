@@ -59,8 +59,8 @@ export function AppSidebar() {
 
   const getNavClass = (isActive: boolean) =>
     isActive
-      ? "bg-sidebar-accent text-sidebar-primary font-medium"
-      : "hover:bg-sidebar-accent/50 text-sidebar-foreground";
+      ? "bg-gradient-to-r from-primary/20 to-primary/5 text-primary font-medium hover:bg-primary/20 transition-all shadow-sm"
+      : "hover:bg-primary/10 text-muted-foreground hover:text-foreground transition-all duration-300";
 
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -77,7 +77,7 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-border flex flex-col">
+    <Sidebar collapsible="icon" className="border-r border-border/50 bg-background/40 backdrop-blur-3xl flex flex-col z-20 shadow-[4px_0_24px_rgba(0,0,0,0.02)] dark:shadow-[4px_0_24px_rgba(0,0,0,0.2)]">
       <SidebarHeader className="border-b border-border p-4">
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
