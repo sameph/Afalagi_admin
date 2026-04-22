@@ -5,9 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import Index from "./pages/Index";
-import Items from "./pages/Items";
-import Lost from "./pages/Lost";
-import Found from "./pages/Found";
+import AllReports from "./pages/AllReports";
 import Matches from "./pages/Matches";
 import Analytics from "./pages/Analytics";
 import Users from "./pages/Users";
@@ -51,19 +49,9 @@ const App = () => (
               <Index />
             </ProtectedRoute>
           } />
-          <Route path="/items" element={
+          <Route path="/all-reports" element={
             <ProtectedRoute>
-              <Items />
-            </ProtectedRoute>
-          } />
-          <Route path="/lost" element={
-            <ProtectedRoute>
-              <Lost />
-            </ProtectedRoute>
-          } />
-          <Route path="/found" element={
-            <ProtectedRoute>
-              <Found />
+              <AllReports />
             </ProtectedRoute>
           } />
           <Route path="/matches" element={

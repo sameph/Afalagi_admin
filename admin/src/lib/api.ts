@@ -151,6 +151,27 @@ export async function fetchAdminPosts(params?: { q?: string; status?: PostStatus
   return fetchJSON<{ success: true; page: number; total: number; totalPages: number; posts: Post[] }>(`/api/admin/posts${query}`);
 }
 
+export async function createAdminPost(formData: FormData) {
+  const res = await fetch(`${API}/api/admin/posts`, {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+  
+  const text = await res.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch (e) {
+    throw new Error(`Unexpected response: ${res.status} ${text}`);
+  }
+
+  if (!res.ok || data?.success === false) {
+    throw new Error(data?.message || data?.error || `Request failed with status ${res.status}`);
+  }
+  return data as { success: true; post: Post };
+}
+
 // ===== Admin Stats =====
 export async function fetchWeeklyStats() {
   return fetchJSON<{ success: true; data: { name: string; lost: number; found: number }[] }>(

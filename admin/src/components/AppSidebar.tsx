@@ -42,9 +42,7 @@ import {
 
 const menuItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
-  { title: "All Items", url: "/items", icon: PackageSearch },
-  { title: "Lost Reports", url: "/lost", icon: PackageX },
-  { title: "Found Reports", url: "/found", icon: PackageCheck },
+  { title: "All Reports", url: "/all-reports", icon: PackageSearch },
   { title: "Matches", url: "/matches", icon: GitMerge },
   { title: "Users", url: "/users", icon: Users },
   { title: "Invite Admin", url: "/invite-admin", icon: UserPlus },
